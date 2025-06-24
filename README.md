@@ -1,57 +1,96 @@
-# image-palette-detector
+# Image Palette Detector
 
-**image-palette-detector** is a fast, multithreaded Python utility that extracts unique color palettes from images, ordered by perceptual brightness. It supports multiple export formats and generates both `.json` and `.bmp` files for each image.
+A fast, lightweight Python tool for extracting color palettes from images. Built for developers, pixel artists, and designers who need precise color data from their assets.
 
-Designed for developers, pixel artists, game creators, and anyone working with limited color sets (e.g., quantized or stylized assets).
+## What it does
 
+This tool analyzes your images and extracts every unique color, then organizes them from darkest to lightest based on perceptual brightness. Perfect for game development, pixel art, and any project where you need to work with specific color sets.
 
 ## Features
 
-- Supports `.png`, `.jpg`, `.jpeg`, and `.bmp` images
-- Extracts **unique** colors only (no duplicates)
-- Sorts palette by **perceptual luminosity** (dark → light)
-- Exports a `.json` palette with:
-  - Hexadecimal format
-  - RGB tuples
-  - CSS-compatible `rgb(r, g, b)` strings
-- Creates a `.bmp` image with one pixel per palette color
-- Runs in **parallel threads** for speed
-- Fully compatible with **Windows** and **Linux**
+- **Multiple format support** - Works with PNG, JPG, JPEG, and BMP images
+- **Smart color extraction** - Gets only unique colors, no duplicates
+- **Perceptual sorting** - Orders colors by how bright they appear to the human eye
+- **Multiple export formats** - Outputs hex codes, RGB values, and CSS-ready strings
+- **Visual palette preview** - Creates a BMP strip showing all extracted colors
+- **Fast processing** - Uses multithreading to handle multiple images quickly
+- **Cross-platform** - Runs on Windows, Linux, and macOS
 
-## Output Example
+## Installation
 
-For an input image like `tileset.png`, the output will be:
+Clone the repository and install the single dependency:
 
+```bash
+git clone https://github.com/your-username/image-palette-detector
+cd image-palette-detector
+pip install pillow
+```
+
+## Usage
+
+Put your images in the project folder and run:
+
+```bash
+python extract_palettes.py
+```
+
+The tool will process all supported images and create an `export/` folder with your results.
+
+## Output
+
+For each image (e.g., `sprite.png`), you get two files:
+
+```
 export/
-├── tileset.json
-└── tileset_palette.bmp
+├── sprite.json         # Color data in multiple formats
+└── sprite_palette.bmp  # Visual palette as a horizontal strip
+```
 
-- The JSON includes all color formats.
-- The BMP is a 1-pixel tall strip, each pixel representing a color in the palette.
+### JSON Structure
 
----
+```json
+{
+  "filename": "sprite.png",
+  "total_colors": 8,
+  "palette": [
+    {
+      "hex": "#2d2d2d",
+      "rgb": [45, 45, 45],
+      "css": "rgb(45, 45, 45)"
+    },
+    {
+      "hex": "#5a5a5a",
+      "rgb": [90, 90, 90],
+      "css": "rgb(90, 90, 90)"
+    }
+  ]
+}
+```
+
+### BMP Preview
+
+The BMP file is a 1-pixel tall horizontal strip where each pixel represents one color from your palette, ordered from dark to light. Import it directly into your art software or game engine.
 
 ## Requirements
 
 - Python 3.7 or higher
-- Pillow
+- Pillow library
 
-Install it with:
+## Troubleshooting
 
-```bash
-pip install pillow
+**"Module not found" error?**
+Make sure Pillow is installed: `pip install pillow`
 
-# Clone this repository
-git clone https://github.com/your-username/image-palette-detector
-cd image-palette-detector
+**No output files?**
+Check that your images are in PNG, JPG, JPEG, or BMP format and located in the same directory as the script.
 
-# Create a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
+**Need help?**
+Open an issue on GitHub with details about your setup and the problem.
 
-# Install dependencies
-pip install pillow
+## License
 
-# Place images in the same folder and run
-python extract_palettes.py
+Open source - use it however you want.
+
+---
+
+*Found this useful? Star the repo and share it with other developers.*
