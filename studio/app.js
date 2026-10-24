@@ -15,6 +15,7 @@ const elements = {
 };
 const MAX_PIXELS = 6_000_000;
 const MAX_DECODE_PIXELS = 25_000_000;
+const MAX_VISIBLE_SWATCHES = 256;
 const worker = new Worker("./worker.js");
 const state = {
   file: null, pixels: null, width: 0, height: 0,
@@ -73,7 +74,7 @@ function renderPalette(result) {
     text.textContent = "No hay píxeles visibles con estos ajustes.";
     elements.swatches.append(text);
   }
-  for (const color of result.colors) {
+  for (const color of result.colors.slice(0, MAX_VISIBLE_SWATCHES)) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "swatch";
@@ -102,6 +103,14 @@ function renderPalette(result) {
       }
     });
     elements.swatches.append(button);
+  }
+  if (result.colors.length > MAX_VISIBLE_SWATCHES) {
+    const notice = document.createElement("p");
+    notice.className = "swatch-notice";
+    notice.textContent = `Mostrando ${MAX_VISIBLE_SWATCHES} de ${
+      result.colors.length.toLocaleString("es-CL")} colores. ` +
+      "Exporta JSON o CSS para obtenerlos todos.";
+    elements.swatches.append(notice);
   }
   elements.summary.textContent = `${result.sampled_pixels.toLocaleString("es-CL")} píxeles ${
     result.mode === "exact" ? "contados" : "muestreados"} · ${
