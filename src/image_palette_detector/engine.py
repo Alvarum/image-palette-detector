@@ -133,11 +133,11 @@ def _dominant(
     stride = max(1, math.ceil(source_pixels / options.sample_limit))
     samples: list[RGB] = []
     considered = 0
-    for index, pixel in enumerate(_pixels_with_positions(image, options)):
+    for pixel in _pixels_with_positions(image, options):
         if pixel is None:
             continue
         considered += 1
-        if index % stride == 0:
+        if (considered - 1) % stride == 0:
             samples.append(pixel[:3])
     if not samples:
         return ((), considered, 0, None)
@@ -179,7 +179,7 @@ def _dominant(
 def _pixels_with_positions(
     image: Image.Image, options: ExtractOptions
 ) -> Iterator[Color | None]:
-    """Keep skipped alpha samples in the original sampling grid."""
+    """Skip invisible pixels while retaining bounded streaming access."""
     for original in _rgba_data(image):
         rgba = (original[0], original[1], original[2], original[3])
         if options.alpha == "ignore" and rgba[3] == 0:

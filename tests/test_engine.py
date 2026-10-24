@@ -124,3 +124,16 @@ def test_sampling_is_bounded(tmp_path: Path) -> None:
     result = extract_palette(path, ExtractOptions(sample_limit=20))
     assert result.considered_pixels == 1000
     assert result.sampled_pixels <= 20
+
+
+def test_alpha_sampling_does_not_discard_rare_visible_pixels(
+    tmp_path: Path,
+) -> None:
+    """Sampling may not select only discarded transparent pixels."""
+    hidden = (250, 10, 10, 0)
+    visible = (0, 200, 80, 255)
+    path = _image(tmp_path / "mostly-hidden.png", [hidden] * 99 + [visible])
+    result = extract_palette(path, ExtractOptions(sample_limit=1))
+    assert result.considered_pixels == 1
+    assert result.sampled_pixels == 1
+    assert result.colors[0].rgba == visible

@@ -74,17 +74,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _find_images(inputs: Sequence[Path], recursive: bool) -> list[Path]:
+def _find_images(
+    inputs: Sequence[Path], recursive: bool, output: Path
+) -> list[Path]:
     """Expand paths deterministically without scanning unrelated outputs."""
     found: set[Path] = set()
+    excluded = output.resolve()
     for entry in inputs:
         if entry.is_file() and entry.suffix.lower() in EXTENSIONS:
-            found.add(entry.resolve())
+            candidate = entry.resolve()
+            if not candidate.is_relative_to(excluded):
+                found.add(candidate)
         elif entry.is_dir():
             files = entry.rglob("*") if recursive else entry.iterdir()
             for child in files:
                 if child.is_file() and child.suffix.lower() in EXTENSIONS:
-                    found.add(child.resolve())
+                    candidate = child.resolve()
+                    if not candidate.is_relative_to(excluded):
+                        found.add(candidate)
         else:
             raise PaletteError(
                 f"Input does not exist or is unsupported: {entry}"
@@ -125,7 +132,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     try:
         options.validate()
-        paths = _find_images(args.inputs, args.recursive)
+        paths = _find_images(args.inputs, args.recursive, args.output)
     except PaletteError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2

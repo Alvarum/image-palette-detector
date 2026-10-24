@@ -64,3 +64,13 @@ def test_preserve_alpha_gpl_is_clear_error(tmp_path: Path) -> None:
         "extract", str(image), "--mode", "exact", "--alpha",
         "preserve", "--formats", "gpl", "-o", str(tmp_path / "out"),
     ]) == 1
+
+
+def test_recursive_scan_skips_prior_output(tmp_path: Path) -> None:
+    """Prior exported images must not become new source images."""
+    _save(tmp_path / "source.png", (15, 15, 15, 255))
+    output = tmp_path / "export"
+    args = ["extract", str(tmp_path), "--recursive", "-o", str(output)]
+    assert main(args) == 0
+    assert main(args) == 0
+    assert len(list(output.glob("*.palette.json"))) == 1
