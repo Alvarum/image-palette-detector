@@ -47,8 +47,8 @@ function refreshControls() {
   elements.countGroup.hidden = exact;
   elements.countValue.textContent = elements.count.value;
   elements.modeInfo.textContent = exact ?
-    "Todos los colores exactos que aparecen en la imagen, con su frecuencia." :
-    "Una selección compacta de los tonos más representativos.";
+    "Lista los colores de la imagen y su frecuencia." :
+    "Reduce los colores de la imagen a una paleta representativa.";
   const preserve = [...elements.alpha.options].find((option) =>
     option.value === "preserve");
   preserve.disabled = !exact;
@@ -115,7 +115,7 @@ function renderPalette(result) {
   elements.summary.textContent = `${result.sampled_pixels.toLocaleString("es-CL")} píxeles ${
     result.mode === "exact" ? "contados" : "muestreados"} · ${
     result.mode === "exact" ? "Colores exactos" : "Cuantización RGB aproximada"}`;
-  showStatus("Listo para exportar");
+  showStatus("Análisis completo");
 }
 
 function analyze() {
@@ -135,7 +135,7 @@ function analyze() {
   elements.swatches.replaceChildren();
   const progress = document.createElement("p");
   progress.className = "hint";
-  progress.textContent = "Analizando la distribución cromática…";
+  progress.textContent = "Calculando paleta…";
   elements.swatches.append(progress);
   elements.countChip.textContent = "…";
   toggleBusy(true);
