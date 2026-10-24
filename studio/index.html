@@ -7,7 +7,7 @@
     <meta name="description" content="Extrae y exporta paletas de color sin subir tus imágenes a ningún servidor." />
     <title>Palette Studio · Image Palette Detector</title>
     <link rel="stylesheet" href="./styles.css" />
-    <script src="./app.js" defer></script>
+    <script type="module" src="./app.js"></script>
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -18,7 +18,7 @@
         <span>PALETTE <strong>STUDIO</strong></span>
       </a>
       <nav class="topnav" aria-label="Enlaces del proyecto">
-        <span class="version">BETA <span>0.2</span></span>
+        <span class="version">BETA <span>0.3</span></span>
         <a href="https://github.com/Alvarum/image-palette-detector" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
       </nav>
     </header>
@@ -26,7 +26,7 @@
       <section class="intro" aria-labelledby="page-title">
         <div class="eyebrow"><span class="pulse"></span> Análisis de color · Procesamiento local</div>
         <h1 id="page-title">Extrae <em>paletas de color</em></h1>
-        <p>Obtén colores dominantes o exactos, consulta su frecuencia y exporta los resultados en JSON, CSS, SVG, PNG o GPL.</p>
+        <p>Extrae colores, ajusta la paleta, prueba contrastes y exporta los resultados.</p>
       </section>
       <section class="workspace" aria-label="Espacio de trabajo de paletas">
         <aside class="sidebar panel" aria-labelledby="settings-title">
@@ -75,7 +75,13 @@
               <img id="preview" class="preview-image" alt="Imagen cargada para analizar" hidden />
             </div>
             <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden />
-            <div class="canvas-footer"><span id="image-detail">Sin imagen cargada.</span><span class="local-tag"><span></span> LOCAL</span></div>
+            <div class="canvas-footer">
+              <span id="image-detail">Sin imagen cargada.</span>
+              <div class="image-actions">
+                <button type="button" class="subtle-button" id="sample-toggle" disabled aria-pressed="false">Cuentagotas</button>
+                <button type="button" class="subtle-button" id="sample-add" hidden>Agregar color</button>
+              </div>
+            </div>
           </section>
           <section class="palette-card panel" aria-labelledby="palette-title">
             <div class="card-toolbar palette-header">
@@ -85,6 +91,58 @@
             <div class="swatch-grid" id="swatches" aria-live="polite"><div class="empty-swatches"><span class="empty-graphic" aria-hidden="true">◈</span><p>Sin resultados</p><span>Selecciona una imagen para extraer su paleta.</span></div></div>
             <div class="palette-footer"><div class="summary" id="summary">Sin análisis.</div><div id="status" class="status" role="status" aria-live="polite"></div></div>
           </section>
+          <div class="creative-grid" id="creative-panel" hidden>
+            <section class="editor-card panel" aria-labelledby="editor-title">
+              <div class="card-toolbar">
+                <div><span class="section-caption">04 / EDITAR</span><h2 id="editor-title">Editar paleta</h2></div>
+                <div class="tool-actions">
+                  <button type="button" class="subtle-button" id="undo" disabled>Deshacer</button>
+                  <button type="button" class="subtle-button" id="redo" disabled>Rehacer</button>
+                  <button type="button" class="subtle-button" id="reset" disabled>Restablecer</button>
+                </div>
+              </div>
+              <p class="tool-description">Selecciona un color de la paleta para modificarlo, fijarlo o cambiar su posición.</p>
+              <div class="editor-controls" id="editor-controls">
+                <div class="selected-color" id="selected-preview" aria-hidden="true"></div>
+                <div class="edit-inputs">
+                  <label for="edit-hex">Color seleccionado</label>
+                  <div class="hex-row">
+                    <input type="text" id="edit-hex" spellcheck="false" maxlength="9" aria-label="Valor hexadecimal del color" />
+                    <input type="color" id="edit-picker" aria-label="Selector visual del color" />
+                    <button type="button" class="subtle-button" id="edit-apply">Aplicar</button>
+                  </div>
+                </div>
+              </div>
+              <div class="edit-actions">
+                <button type="button" class="subtle-button" id="edit-lock" aria-pressed="false">Fijar</button>
+                <button type="button" class="subtle-button" id="edit-left" aria-label="Mover color hacia la izquierda">← Mover</button>
+                <button type="button" class="subtle-button" id="edit-right" aria-label="Mover color hacia la derecha">Mover →</button>
+                <button type="button" class="subtle-button" id="edit-copy">Copiar HEX</button>
+                <button type="button" class="subtle-button danger" id="edit-remove">Eliminar</button>
+              </div>
+              <div class="add-row">
+                <label for="new-color">Añadir color</label>
+                <input type="color" id="new-color" value="#C9A6D8" />
+                <button type="button" class="subtle-button" id="add-color">Agregar a paleta</button>
+              </div>
+            </section>
+            <section class="contrast-card panel" aria-labelledby="contrast-title">
+              <div class="card-toolbar">
+                <div><span class="section-caption">05 / COMPROBAR</span><h2 id="contrast-title">Contraste y degradado</h2></div>
+              </div>
+              <p class="tool-description">Selecciona dos colores para comprobar la legibilidad y crear un degradado.</p>
+              <div class="contrast-pair">
+                <label for="contrast-fg">Texto<select id="contrast-fg"></select></label>
+                <button type="button" class="subtle-button swap-button" id="contrast-swap" aria-label="Intercambiar colores de texto y fondo">⇄</button>
+                <label for="contrast-bg">Fondo<select id="contrast-bg"></select></label>
+              </div>
+              <div id="contrast-preview" class="contrast-preview"><span>Ejemplo de texto</span><small>Texto y fondo seleccionados</small></div>
+              <div id="contrast-stats" class="contrast-stats" aria-live="polite"></div>
+              <p class="hint">Los colores con transparencia se calculan sobre fondo blanco.</p>
+              <div class="gradient-preview" id="gradient-preview" aria-label="Degradado entre ambos colores"></div>
+              <button type="button" class="subtle-button copy-gradient" id="copy-gradient">Copiar degradado CSS</button>
+            </section>
+          </div>
         </div>
       </section>
       <footer class="footer"><span>IMAGE PALETTE DETECTOR</span><a href="https://github.com/Alvarum/image-palette-detector/issues" target="_blank" rel="noopener noreferrer">Enviar sugerencias ↗</a></footer>

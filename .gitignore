@@ -10,3 +10,7 @@ dist/
 export/
 .coverage
 .DS_Store
+
+# Studio dependencies and compiled assets
+studio/node_modules/
+studio/dist/
