@@ -2,7 +2,6 @@ import {
   compositeOn, contrastRatio, editPalette, mergeExtracted, newEditor,
   parseHex, relativeLuminance, rgbaToHex, sampleCoordinate,
 } from "./color-tools.mjs";
-import { initializeAnimations } from "./animations.mjs";
 
 /* Minimal client-only Studio: one image, one worker, predictable state. */
 "use strict";
@@ -634,4 +633,10 @@ document.addEventListener("keydown", (event) => {
     type: event.shiftKey ? "redo" : "undo",
   }, event.shiftKey ? "Cambio rehecho" : "Cambio deshecho");
 });
-initializeAnimations();
+// Animation is an enhancement, never a prerequisite to use the editor.
+import("./animations.mjs")
+  .then(({ initializeAnimations }) => initializeAnimations())
+  .catch(() => {
+    // Without npm dependencies the original static HTTP server still works.
+    console.info("Animaciones opcionales no disponibles.");
+  });

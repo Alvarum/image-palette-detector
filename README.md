@@ -47,6 +47,16 @@ Motion run from bundled local dependencies, not a runtime CDN. The Studio
 isn't yet a PWA; host the built files or use the Vite server. The preview
 is capped at 6 million pixels and Exact mode at 200,000 distinct colors.
 
+If you only want to use the editor without animations or npm, it can still be
+served as static files from the repository root:
+
+```bash
+python -m http.server 8000 --directory studio
+```
+
+Open <http://localhost:8000>. The GSAP/Motion module is loaded optionally,
+so an unavailable animation dependency does not block extraction or editing.
+
 ## Install the CLI
 
 Requires Python **3.11+** and Pillow **10+**.
