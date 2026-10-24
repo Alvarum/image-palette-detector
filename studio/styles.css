@@ -114,7 +114,6 @@ input[type="color"] { width: 42px; height: 30px; padding: 3px; border: 1px solid
 .status.is-error { color: #f6a7ac; }
 .footer { display: flex; justify-content: space-between; align-items: center; color: #75717f; font-size: 10px; letter-spacing: .11em; padding: 35px 0 45px; gap: 15px; }
 .footer a { letter-spacing: 0; font-size: 11px; }
-.dot { margin: 0 5px; color: #bd95c1; }
 .sr-only { border: 0; clip: rect(0,0,0,0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; width: 1px; white-space: nowrap; }
 [hidden] { display: none !important; }
 @media (max-width: 950px) { .workspace { grid-template-columns: 1fr; } .sidebar { min-height: 0; } .settings-bottom { margin-top: 24px; } .intro { padding-top: 42px; } }

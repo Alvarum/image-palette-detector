@@ -26,6 +26,7 @@ test("image upload instructions identify a concrete action", () => {
 test("privacy information describes local image processing", () => {
   assert.match(html, /Procesamiento local/);
   assert.match(html, /no se envían a ningún servidor/);
+  assert.doesNotMatch(html, /100% LOCAL/);
 });
 
 test("obsolete promotional phrases do not reappear", () => {
