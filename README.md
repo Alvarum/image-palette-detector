@@ -4,8 +4,35 @@ A local-first color tool for artists, pixel artists and developers. Extract
 useful dominant colors from a photograph, inspect **exact RGBA colors** in a
 sprite, and export reproducible palettes for code or visual work.
 
-**Version:** 0.2.0, first CLI and Python engine implementation of the 2.0 roadmap. Not all roadmap
+**Version:** 0.2.0, first implementation of the 2.0 roadmap. Not all roadmap
 features are ready yet. [Issues and future work](https://github.com/Alvarum/image-palette-detector/issues/1).
+
+## Try it in your browser (no image uploads)
+
+```bash
+python -m http.server 8000 --directory studio
+```
+
+Then open <http://localhost:8000>. The Studio processes selected images in
+your browser. It does **not** send them to a server; it uses the browser's
+Canvas and a Web Worker. The Python web server serves only static files.
+
+- Click, drag-and-drop or paste an image into the Studio.
+- Switch **Dominant** (representative palette) or **Exact** (unique colors).
+- Pick your swatch count (Dominant), sorting and transparency policy.
+- Click a swatch to copy its HEX. Export JSON, CSS, SVG, GPL or PNG.
+- The Studio and Python CLI share core JSON fields (their option objects
+  differ). Dominant quantizers
+  differ (weighted median-cut vs Pillow median-cut), so their colors may
+  differ slightly. Exact Studio mode operates on browser-decoded Canvas
+  pixels and may not preserve invisible RGB data or exact semi-transparent
+  channels (Canvas can premultiply alpha). For lossless RGBA inspection,
+  use the Python CLI with `--alpha preserve`.
+
+No accounts, uploads, tracking scripts, external fonts or build tools.
+Currently the Studio isn't installable offline: serve the files locally or
+host it as a static website. The preview is capped at 6 million pixels and
+Exact mode at 200,000 distinct colors to prevent browser lockups.
 
 ## Install the CLI
 

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#11121a" />
+    <meta name="description" content="Extrae y exporta paletas de color sin subir tus imágenes a ningún servidor." />
+    <title>Palette Studio · Image Palette Detector</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+    <header class="topbar shell">
+      <a class="brand" href="./" aria-label="Palette Studio, inicio">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span>PALETTE <strong>STUDIO</strong></span>
+      </a>
+      <nav class="topnav" aria-label="Enlaces del proyecto">
+        <span class="version">BETA <span>0.2</span></span>
+        <a href="https://github.com/Alvarum/image-palette-detector" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main class="shell">
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="pulse"></span> Laboratorio de color · Procesamiento local</div>
+        <h1 id="page-title">Cada imagen tiene <em>su propia voz.</em></h1>
+        <p>Encuentra los colores que la componen. Explora paletas exactas o dominantes y llévalas a tus proyectos con un clic.</p>
+      </section>
+      <section class="workspace" aria-label="Espacio de trabajo de paletas">
+        <aside class="sidebar panel" aria-labelledby="settings-title">
+          <div class="panel-header">
+            <span class="section-caption">01 / CONFIGURAR</span>
+            <h2 id="settings-title">Tu análisis</h2>
+          </div>
+          <div class="settings-group">
+            <label class="group-label">Método de extracción</label>
+            <div class="mode-switch" role="radiogroup" aria-label="Método de extracción">
+              <label><input type="radio" name="mode" value="dominant" checked /><span>Dominante</span></label>
+              <label><input type="radio" name="mode" value="exact" /><span>Exacto</span></label>
+            </div>
+            <p id="mode-description" class="hint">Una selección compacta de los tonos más representativos.</p>
+          </div>
+          <div class="settings-group" id="count-group">
+            <div class="field-heading"><label for="color-count">Cantidad de colores</label><output id="count-value" for="color-count">8</output></div>
+            <input id="color-count" type="range" min="2" max="24" step="1" value="8" />
+            <div class="range-labels"><span>2</span><span>24</span></div>
+          </div>
+          <div class="settings-group">
+            <label class="group-label" for="sort">Ordenar resultados</label>
+            <div class="select-wrap"><select id="sort"><option value="frequency">Mayor presencia primero</option><option value="luminance">Luminosidad</option><option value="hue">Tono cromático</option></select></div>
+          </div>
+          <div class="settings-group">
+            <label class="group-label" for="alpha">Transparencia</label>
+            <div class="select-wrap"><select id="alpha"><option value="ignore">Omitir píxeles invisibles</option><option value="composite">Componer sobre fondo</option><option value="preserve">Conservar RGBA (exacto)</option></select></div>
+            <div class="background-control"><label for="background">Color de fondo</label><input id="background" type="color" value="#FFFFFF" aria-label="Color para componer transparencia" /></div>
+          </div>
+          <div class="settings-bottom"><span class="privacy-icon" aria-hidden="true">✳</span><p><strong>Tu imagen se queda contigo.</strong><br />El análisis ocurre en este dispositivo. Nada se sube a la nube.</p></div>
+        </aside>
+        <div class="workarea">
+          <section class="image-card panel" aria-label="Imagen de referencia">
+            <div class="card-toolbar">
+              <div><span class="section-caption">02 / IMAGEN</span><h2>Tu lienzo</h2></div>
+              <div class="file-meta" id="image-meta" aria-live="polite">Sin imagen</div>
+            </div>
+            <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Seleccionar imagen o soltar archivo aquí">
+              <div class="placeholder" id="placeholder">
+                <div class="drop-icon" aria-hidden="true"><span>↗</span></div>
+                <h3>Un mundo de colores comienza aquí.</h3>
+                <p>Arrastra una imagen, pégala con Ctrl+V o selecciónala.</p>
+                <button type="button" class="primary-button" id="browse">Explorar archivos <span aria-hidden="true">↗</span></button>
+                <span class="file-hint">PNG, JPG, WebP, GIF, BMP y más</span>
+              </div>
+              <img id="preview" class="preview-image" alt="Imagen cargada para analizar" hidden />
+            </div>
+            <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff" hidden />
+            <div class="canvas-footer"><span id="image-detail">Carga una imagen para empezar.</span><span class="local-tag"><span></span> 100% LOCAL</span></div>
+          </section>
+          <section class="palette-card panel" aria-labelledby="palette-title">
+            <div class="card-toolbar palette-header">
+              <div><span class="section-caption">03 / RESULTADO</span><h2 id="palette-title">Paleta extraída <span id="swatch-count" class="count-chip">0</span></h2></div>
+              <div class="export-controls"><label class="sr-only" for="export-format">Formato para exportar</label><div class="select-wrap export-select"><select id="export-format"><option value="json">JSON</option><option value="css">CSS</option><option value="svg">SVG</option><option value="png">PNG</option><option value="gpl">GIMP GPL</option></select></div><button type="button" class="export-button" id="export" disabled>Exportar <span aria-hidden="true">↓</span></button></div>
+            </div>
+            <div class="swatch-grid" id="swatches" aria-live="polite"><div class="empty-swatches"><span class="empty-graphic" aria-hidden="true">◈</span><p>Tu paleta aparecerá aquí.</p><span>Las mejores combinaciones aún están por descubrir.</span></div></div>
+            <div class="palette-footer"><div class="summary" id="summary">Esperando una imagen…</div><div id="status" class="status" role="status" aria-live="polite"></div></div>
+          </section>
+        </div>
+      </section>
+      <footer class="footer"><span>IMAGE PALETTE DETECTOR <span class="dot">·</span> MADE TO MAKE COLORS MATTER</span><a href="https://github.com/Alvarum/image-palette-detector/issues" target="_blank" rel="noopener noreferrer">Proponer una mejora ↗</a></footer>
+    </main>
+  </body>
+</html>
