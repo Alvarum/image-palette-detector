@@ -29,6 +29,7 @@ const elements = {
   contrastBg: $("contrast-bg"), contrastSwap: $("contrast-swap"),
   contrastStats: $("contrast-stats"), contrastPreview: $("contrast-preview"),
   gradientPreview: $("gradient-preview"), copyGradient: $("copy-gradient"),
+  contrastLimit: $("contrast-limit"),
 };
 const MAX_PIXELS = 6_000_000;
 const MAX_DECODE_PIXELS = 25_000_000;
@@ -111,24 +112,32 @@ function updateEditorControls() {
 }
 
 function updateContrastChoices() {
-  const colors = state.editor?.colors || [];
+  const allColors = state.editor?.colors || [];
+  const indices = Array.from({ length: Math.min(allColors.length,
+    MAX_VISIBLE_SWATCHES) }, (_, index) => index);
+  const selected = state.editor?.selected ?? -1;
+  if (selected >= MAX_VISIBLE_SWATCHES && selected < allColors.length) {
+    indices.push(selected);
+  }
   const fgPrevious = elements.contrastFg.value;
   const bgPrevious = elements.contrastBg.value;
-  const darkest = [...colors].sort((a, b) =>
-    relativeLuminance(a.rgb) - relativeLuminance(b.rgb));
-  const defaultFg = colors.indexOf(darkest[0]);
-  const defaultBg = colors.indexOf(darkest.at(-1));
+  const ordered = [...indices].sort((a, b) =>
+    relativeLuminance(allColors[a].rgb) - relativeLuminance(allColors[b].rgb));
+  const defaultFg = ordered[0] ?? 0;
+  const defaultBg = ordered.at(-1) ?? 0;
   for (const select of [elements.contrastFg, elements.contrastBg]) {
-    select.replaceChildren(...colors.map((color, index) => {
+    select.replaceChildren(...indices.map((index) => {
       const option = document.createElement("option");
       option.value = String(index);
-      option.textContent = `${String(index + 1).padStart(2, "0")} · ${color.hex}`;
+      option.textContent = `${String(index + 1).padStart(2, "0")} · ${
+        allColors[index].hex}`;
       return option;
     }));
   }
-  const valid = (value) => value !== "" && Number(value) < colors.length;
+  const valid = (value) => value !== "" && indices.includes(Number(value));
   elements.contrastFg.value = valid(fgPrevious) ? fgPrevious : String(defaultFg);
   elements.contrastBg.value = valid(bgPrevious) ? bgPrevious : String(defaultBg);
+  elements.contrastLimit.hidden = allColors.length <= MAX_VISIBLE_SWATCHES;
   updateContrast();
 }
 

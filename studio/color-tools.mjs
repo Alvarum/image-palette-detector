@@ -33,17 +33,15 @@ export function newEditor(colors = []) {
 }
 
 function snapshot(editor) {
-  return {
-    colors: editor.colors.map((color) => ({
-      ...color, rgba: [...color.rgba], rgb: [...color.rgb],
-    })),
-    selected: editor.selected,
-  };
+  // Swatches are immutable during edits; sharing objects avoids repeated
+  // deep copies when analyzing thousands of exact colors.
+  return { colors: [...editor.colors], selected: editor.selected };
 }
 
 function commit(editor, next) {
   const previous = snapshot(editor);
-  const undo = [...editor.undo, previous].slice(-HISTORY_LIMIT);
+  const limit = editor.colors.length > 4096 ? 5 : HISTORY_LIMIT;
+  const undo = [...editor.undo, previous].slice(-limit);
   return { ...next, undo, redo: [] };
 }
 
@@ -110,8 +108,8 @@ export function mergeExtracted(editor, extracted, mode = "dominant") {
   const locked = editor.colors.filter((color) => color.locked).map((color) => ({
     ...color, count: null, coverage: null, manual: true,
   }));
-  const rest = extracted.filter((color) =>
-    !locked.some((item) => item.hex === color.hex));
+  const pinnedHexes = new Set(locked.map((color) => color.hex));
+  const rest = extracted.filter((color) => !pinnedHexes.has(color.hex));
   const merged = [...locked, ...rest];
   // Exact must never drop source colors. Dominant respects the N limit.
   const max = mode === "exact" ? merged.length :
