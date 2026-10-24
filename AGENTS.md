@@ -33,3 +33,21 @@ Conservar accesibilidad, textos alternativos y etiquetas de controles.
 
 Registrar regresiones como issues, implementar sobre una rama y revisar el
 PR antes de fusionar. No asumir que las pruebas remotas están disponibles.
+
+## Workbench y animaciones
+
+- Las operaciones sobre paletas usan funciones puras en
+  `studio/color-tools.mjs`, y sus cambios deben acompañarse de tests.
+- Distinguir píxeles medidos de colores modificados: `coverage` y `count`
+  deben ser `null` en un color añadido o sustituido manualmente.
+- Mantener la extracción en Web Worker y no ejecutar trabajo pesado en el
+  hilo principal para lograr efectos visuales.
+- GSAP se usa para coreografías de entrada; Motion para feedback acotado en
+  controles y swatches. No usar ambas bibliotecas sobre un mismo nodo durante
+  la misma animación ni animar más swatches de los necesarios.
+- Respetar siempre `prefers-reduced-motion`; ningún flujo debe depender de
+  que se complete una animación para funcionar.
+- En `studio/`, usar Vite para compilar dependencias fijadas; evitar CDNs en
+  runtime y no afirmar que el build está probado si npm no pudo instalarse.
+- Validar `node --test studio/*.test.js`, `PYTHONPATH=src pytest -q`, sintaxis,
+  interfaces en 320/390/1440/2560 y el build Vite cuando sea posible.

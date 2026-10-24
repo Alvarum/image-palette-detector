@@ -1,3 +1,8 @@
+import {
+  compositeOn, contrastRatio, editPalette, mergeExtracted, newEditor,
+  parseHex, relativeLuminance, rgbaToHex, sampleCoordinate,
+} from "./color-tools.mjs";
+
 /* Minimal client-only Studio: one image, one worker, predictable state. */
 "use strict";
 
@@ -12,15 +17,29 @@ const elements = {
   swatches: $("swatches"), countChip: $("swatch-count"),
   summary: $("summary"), status: $("status"),
   export: $("export"), format: $("export-format"),
+  sampleToggle: $("sample-toggle"), sampleAdd: $("sample-add"),
+  creative: $("creative-panel"),
+  undo: $("undo"), redo: $("redo"), reset: $("reset"),
+  editHex: $("edit-hex"), editPicker: $("edit-picker"),
+  editApply: $("edit-apply"), editLock: $("edit-lock"),
+  editLeft: $("edit-left"), editRight: $("edit-right"),
+  editCopy: $("edit-copy"), editRemove: $("edit-remove"),
+  selectedPreview: $("selected-preview"), newColor: $("new-color"),
+  addColor: $("add-color"), contrastFg: $("contrast-fg"),
+  contrastBg: $("contrast-bg"), contrastSwap: $("contrast-swap"),
+  contrastStats: $("contrast-stats"), contrastPreview: $("contrast-preview"),
+  gradientPreview: $("gradient-preview"), copyGradient: $("copy-gradient"),
+  contrastLimit: $("contrast-limit"),
 };
 const MAX_PIXELS = 6_000_000;
 const MAX_DECODE_PIXELS = 25_000_000;
 const MAX_VISIBLE_SWATCHES = 256;
-const worker = new Worker("./worker.js");
+const worker = new Worker(new URL("./worker.js", import.meta.url));
 const state = {
   file: null, pixels: null, width: 0, height: 0,
   previewUrl: null, result: null, request: 0, sampledPreview: false,
-  loadRequest: 0,
+  loadRequest: 0, baseResult: null, editor: null, sampling: false,
+  sampleHex: null,
 };
 
 function showStatus(message, error = false) {
@@ -63,24 +82,125 @@ function toggleBusy(isBusy) {
   elements.drop.setAttribute("aria-busy", String(isBusy));
 }
 
-function renderPalette(result) {
-  state.result = result;
+function updateEditorControls() {
+  const editor = state.editor;
+  const chosen = editor?.colors[editor.selected];
+  elements.creative.hidden = !state.baseResult;
+  elements.undo.disabled = !editor?.undo.length;
+  elements.redo.disabled = !editor?.redo.length;
+  elements.reset.disabled = !state.baseResult;
+  for (const id of ["editHex", "editPicker", "editApply", "editLock", "editLeft",
+    "editRight", "editCopy", "editRemove"]) {
+    elements[id].disabled = !chosen;
+  }
+  if (!chosen) {
+    elements.editHex.value = "";
+    elements.selectedPreview.style.backgroundColor = "transparent";
+    elements.editLock.setAttribute("aria-pressed", "false");
+    elements.editLeft.disabled = true;
+    elements.editRight.disabled = true;
+    return;
+  }
+  elements.editHex.value = chosen.hex;
+  elements.editPicker.value = `#${chosen.rgb.map((n) =>
+    n.toString(16).padStart(2, "0")).join("")}`;
+  elements.selectedPreview.style.backgroundColor = chosen.css;
+  elements.editLock.textContent = chosen.locked ? "Desfijar" : "Fijar";
+  elements.editLock.setAttribute("aria-pressed", String(!!chosen.locked));
+  elements.editLeft.disabled = editor.selected === 0;
+  elements.editRight.disabled = editor.selected === editor.colors.length - 1;
+}
+
+function updateContrastChoices() {
+  const allColors = state.editor?.colors || [];
+  const indices = Array.from({ length: Math.min(allColors.length,
+    MAX_VISIBLE_SWATCHES) }, (_, index) => index);
+  const selected = state.editor?.selected ?? -1;
+  if (selected >= MAX_VISIBLE_SWATCHES && selected < allColors.length) {
+    indices.push(selected);
+  }
+  const fgPrevious = elements.contrastFg.value;
+  const bgPrevious = elements.contrastBg.value;
+  const ordered = [...indices].sort((a, b) =>
+    relativeLuminance(allColors[a].rgb) - relativeLuminance(allColors[b].rgb));
+  const defaultFg = ordered[0] ?? 0;
+  const defaultBg = ordered.at(-1) ?? 0;
+  for (const select of [elements.contrastFg, elements.contrastBg]) {
+    select.replaceChildren(...indices.map((index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = `${String(index + 1).padStart(2, "0")} · ${
+        allColors[index].hex}`;
+      return option;
+    }));
+  }
+  const valid = (value) => value !== "" && indices.includes(Number(value));
+  elements.contrastFg.value = valid(fgPrevious) ? fgPrevious : String(defaultFg);
+  elements.contrastBg.value = valid(bgPrevious) ? bgPrevious : String(defaultBg);
+  elements.contrastLimit.hidden = allColors.length <= MAX_VISIBLE_SWATCHES;
+  updateContrast();
+}
+
+function gradientValue() {
+  const fg = state.editor?.colors[Number(elements.contrastFg.value)];
+  const bg = state.editor?.colors[Number(elements.contrastBg.value)];
+  return fg && bg ? `linear-gradient(90deg, ${fg.hex}, ${bg.hex})` : null;
+}
+
+function updateContrast() {
+  const fg = state.editor?.colors[Number(elements.contrastFg.value)];
+  const bg = state.editor?.colors[Number(elements.contrastBg.value)];
+  if (!fg || !bg) {
+    elements.contrastStats.textContent = "Selecciona dos colores.";
+    elements.contrastPreview.style.background = "";
+    elements.contrastPreview.style.color = "";
+    elements.gradientPreview.style.background = "";
+    elements.copyGradient.disabled = true;
+    return;
+  }
+  // WCAG ratio is calculated for displayed, fully opaque sRGB colors.
+  // Semi-transparent foreground overlays the flattened background.
+  const bgOpaque = compositeOn(bg.rgba, [255, 255, 255]);
+  const fgOpaque = compositeOn(fg.rgba, bgOpaque);
+  const ratio = contrastRatio(fgOpaque, bgOpaque);
+  elements.contrastPreview.style.backgroundColor = `rgb(${bgOpaque.join(",")})`;
+  elements.contrastPreview.style.color = `rgb(${fgOpaque.join(",")})`;
+  elements.contrastStats.replaceChildren();
+  const ratioValue = document.createElement("strong");
+  ratioValue.textContent = `${ratio.toFixed(2)}:1`;
+  const details = document.createElement("span");
+  details.textContent = `${ratio >= 4.5 ? "AA texto: cumple" : "AA texto: no cumple"} · ` +
+    `${ratio >= 3 ? "AA texto grande: cumple" : "AA texto grande: no cumple"} · ` +
+    `${ratio >= 7 ? "AAA: cumple" : "AAA: no cumple"}`;
+  elements.contrastStats.append(ratioValue, details);
+  elements.gradientPreview.style.background = gradientValue();
+  elements.copyGradient.disabled = false;
+}
+
+function refreshPaletteUI(animateSwatches = false) {
+  if (!state.baseResult || !state.editor) return;
+  state.result = {
+    ...state.baseResult,
+    edited: state.editor.undo.length > 0,
+    colors: state.editor.colors.map((color) => ({ ...color })),
+  };
+  const colors = state.editor.colors;
   elements.swatches.replaceChildren();
-  elements.countChip.textContent = String(result.colors.length);
+  elements.countChip.textContent = String(colors.length);
   elements.export.disabled = false;
-  if (result.colors.length === 0) {
+  if (!colors.length) {
     const text = document.createElement("p");
     text.className = "hint";
-    text.textContent = "No hay píxeles visibles con estos ajustes.";
+    text.textContent = "Paleta vacía. Añade un color o restablece el análisis.";
     elements.swatches.append(text);
   }
-  for (const color of result.colors.slice(0, MAX_VISIBLE_SWATCHES)) {
+  colors.slice(0, MAX_VISIBLE_SWATCHES).forEach((color, index) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "swatch";
-    button.title = `Copiar ${color.hex}`;
-    button.setAttribute("aria-label", `Copiar color ${color.hex}, ${
-      (color.coverage * 100).toFixed(1)}%`);
+    button.classList.toggle("is-selected", index === state.editor.selected);
+    button.setAttribute("aria-pressed", String(index === state.editor.selected));
+    button.setAttribute("aria-label", `Editar color ${color.hex}, posición ${index + 1}`);
     const fill = document.createElement("span");
     fill.className = "swatch-fill";
     const inner = document.createElement("span");
@@ -91,31 +211,106 @@ function renderPalette(result) {
     const hex = document.createElement("strong");
     hex.textContent = color.hex;
     const coverage = document.createElement("small");
-    coverage.textContent = `${(color.coverage * 100).toFixed(1)}% presencia`;
+    coverage.textContent = color.manual || color.coverage == null ?
+      "Editado / añadido" : `${(color.coverage * 100).toFixed(1)}% presencia`;
     details.append(hex, coverage);
+    if (color.locked) {
+      const pin = document.createElement("span");
+      pin.className = "pinned-label";
+      pin.textContent = "Fijado";
+      details.append(pin);
+    }
     button.append(fill, details);
-    button.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(color.hex);
-        showStatus(`${color.hex} copiado`);
-      } catch {
-        showStatus("No se pudo copiar. Usa la exportación de CSS.", true);
-      }
+    button.addEventListener("click", () => {
+      state.editor = editPalette(state.editor, { type: "select", index });
+      elements.swatches.querySelectorAll(".swatch").forEach((swatch, i) => {
+        swatch.classList.toggle("is-selected", i === index);
+        swatch.setAttribute("aria-pressed", String(i === index));
+      });
+      updateEditorControls();
+      document.dispatchEvent(new CustomEvent("palette:selection", {
+        detail: { target: button },
+      }));
     });
     elements.swatches.append(button);
-  }
-  if (result.colors.length > MAX_VISIBLE_SWATCHES) {
+  });
+  if (colors.length > MAX_VISIBLE_SWATCHES) {
     const notice = document.createElement("p");
     notice.className = "swatch-notice";
     notice.textContent = `Mostrando ${MAX_VISIBLE_SWATCHES} de ${
-      result.colors.length.toLocaleString("es-CL")} colores. ` +
-      "Exporta JSON o CSS para obtenerlos todos.";
+      colors.length.toLocaleString("es-CL")} colores. ` +
+      "Las exportaciones incluyen la paleta completa.";
     elements.swatches.append(notice);
   }
-  elements.summary.textContent = `${result.sampled_pixels.toLocaleString("es-CL")} píxeles ${
-    result.mode === "exact" ? "contados" : "muestreados"} · ${
-    result.mode === "exact" ? "Colores exactos" : "Cuantización RGB aproximada"}`;
+  elements.summary.textContent = `${state.baseResult.sampled_pixels.toLocaleString("es-CL")} píxeles ${
+    state.baseResult.mode === "exact" ? "contados" : "muestreados"} · ${
+    state.baseResult.mode === "exact" ? "Colores exactos" : "Cuantización RGB aproximada"}`;
+  updateEditorControls();
+  updateContrastChoices();
+  if (animateSwatches) {
+    document.dispatchEvent(new CustomEvent("palette:rendered"));
+  }
+}
+
+function renderPalette(result) {
+  state.baseResult = result;
+  state.editor = state.editor ? mergeExtracted(state.editor, result.colors, result.mode) :
+    newEditor(result.colors);
+  // Recompute default contrast colors after each new extraction.
+  elements.contrastFg.value = "";
+  elements.contrastBg.value = "";
+  refreshPaletteUI(true);
   showStatus("Análisis completo");
+}
+
+function applyEditorAction(action, message) {
+  if (!state.editor) return;
+  const next = editPalette(state.editor, action);
+  if (next === state.editor) {
+    if (action.type === "update" || action.type === "add") {
+      showStatus("Introduce un valor HEX de 6 u 8 dígitos.", true);
+    }
+    return;
+  }
+  const selectedDuplicate = action.type === "add" &&
+    next.undo.length === state.editor.undo.length;
+  state.editor = next;
+  refreshPaletteUI(action.type !== "select");
+  showStatus(selectedDuplicate ? "Color existente seleccionado" : message);
+}
+
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    showStatus("Copiado al portapapeles");
+  } catch {
+    showStatus("No se pudo copiar. Comprueba los permisos del navegador.", true);
+  }
+}
+
+function sampleImage(event) {
+  if (!state.sampling || !state.pixels) return;
+  const coord = sampleCoordinate(
+    event.clientX, event.clientY, elements.preview.getBoundingClientRect(),
+    state.width, state.height
+  );
+  if (!coord) {
+    showStatus("Selecciona un punto dentro de la imagen.", true);
+    return;
+  }
+  const at = (coord.y * state.width + coord.x) * 4;
+  const pixel = [...state.pixels.slice(at, at + 4)];
+  // An added swatch is an opaque color as seen over the chosen canvas background.
+  const bg = parseHex(elements.background.value);
+  const rgb = compositeOn(pixel, bg);
+  state.sampleHex = rgbaToHex([...rgb, 255]);
+  elements.sampleAdd.hidden = false;
+  elements.sampleAdd.textContent = `Agregar ${state.sampleHex}`;
+  elements.sampleAdd.style.borderColor = state.sampleHex;
+  showStatus(`Píxel ${coord.x}, ${coord.y}: ${state.sampleHex}`);
+  state.sampling = false;
+  elements.drop.classList.remove("sampling");
+  elements.sampleToggle.setAttribute("aria-pressed", "false");
 }
 
 function analyze() {
@@ -123,6 +318,8 @@ function analyze() {
   const id = ++state.request;
   if (mode() === "exact" && state.sampledPreview) {
     state.result = null;
+    state.baseResult = null;
+    elements.creative.hidden = true;
     elements.export.disabled = true;
     elements.swatches.replaceChildren();
     elements.countChip.textContent = "0";
@@ -132,6 +329,7 @@ function analyze() {
     return;
   }
   state.result = null;
+  elements.creative.hidden = true;
   elements.swatches.replaceChildren();
   const progress = document.createElement("p");
   progress.className = "hint";
@@ -153,6 +351,8 @@ worker.onmessage = ({ data }) => {
   toggleBusy(false);
   if (data.error) {
     state.result = null;
+    state.baseResult = null;
+    elements.creative.hidden = true;
     elements.export.disabled = true;
     showStatus(data.error, true);
   } else {
@@ -161,6 +361,8 @@ worker.onmessage = ({ data }) => {
 };
 worker.onerror = () => {
   state.result = null;
+  state.baseResult = null;
+  elements.creative.hidden = true;
   toggleBusy(false);
   showStatus("El analizador falló. Recarga la página para reintentarlo.", true);
 };
@@ -178,6 +380,15 @@ async function openFile(file) {
     showStatus("Usa una imagen raster válida (máximo 75 MB).", true);
     return;
   }
+  // Prevent an old Worker result from appearing under a newly selected file.
+  state.request += 1;
+  state.result = null;
+  state.baseResult = null;
+  state.editor = null;
+  state.sampleHex = null;
+  elements.sampleAdd.hidden = true;
+  elements.creative.hidden = true;
+  elements.export.disabled = true;
   try {
     showStatus("Leyendo imagen…");
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -212,6 +423,10 @@ async function openFile(file) {
     state.previewUrl = url;
     state.file = file;
     state.pixels = pixels;
+    elements.sampleToggle.disabled = false;
+    elements.sampleToggle.setAttribute("aria-pressed", "false");
+    elements.drop.classList.remove("sampling");
+    state.sampling = false;
     state.width = width;
     state.height = height;
     state.sampledPreview = factor < 1;
@@ -300,7 +515,14 @@ elements.browse.addEventListener("click", (event) => {
   event.stopPropagation();
   elements.input.click();
 });
-elements.drop.addEventListener("click", () => elements.input.click());
+elements.drop.addEventListener("click", () => {
+  if (!state.sampling) elements.input.click();
+});
+elements.preview.addEventListener("click", (event) => {
+  if (!state.sampling) return;
+  event.stopPropagation();
+  sampleImage(event);
+});
 elements.drop.addEventListener("keydown", (event) => {
   if (event.target !== elements.drop) return;
   if (event.key === "Enter" || event.key === " ") {
@@ -342,3 +564,88 @@ elements.count.addEventListener("input", () => {
 elements.count.addEventListener("change", refreshControls);
 elements.export.addEventListener("click", exportResult);
 refreshControls();
+
+// Editing actions are independent of the extraction Worker.
+elements.sampleToggle.addEventListener("click", () => {
+  if (!state.file) return;
+  state.sampling = !state.sampling;
+  elements.drop.classList.toggle("sampling", state.sampling);
+  elements.sampleToggle.setAttribute("aria-pressed", String(state.sampling));
+  showStatus(state.sampling ? "Haz clic en un píxel de la imagen." : "Cuentagotas desactivado");
+});
+elements.sampleAdd.addEventListener("click", () => {
+  if (state.sampleHex) applyEditorAction({ type: "add", hex: state.sampleHex }, "Color agregado");
+});
+elements.editApply.addEventListener("click", () => applyEditorAction({
+  type: "update", hex: elements.editHex.value,
+}, "Color actualizado"));
+elements.editHex.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") elements.editApply.click();
+});
+elements.editPicker.addEventListener("change", () => {
+  elements.editHex.value = elements.editPicker.value.toUpperCase();
+  elements.editApply.click();
+});
+elements.addColor.addEventListener("click", () => applyEditorAction({
+  type: "add", hex: elements.newColor.value,
+}, "Color agregado"));
+elements.editLock.addEventListener("click", () => applyEditorAction({
+  type: "lock",
+}, "Fijación modificada"));
+elements.editRemove.addEventListener("click", () => applyEditorAction({
+  type: "remove",
+}, "Color eliminado"));
+elements.editLeft.addEventListener("click", () => applyEditorAction({
+  type: "move", offset: -1,
+}, "Color movido"));
+elements.editRight.addEventListener("click", () => applyEditorAction({
+  type: "move", offset: 1,
+}, "Color movido"));
+elements.editCopy.addEventListener("click", () => {
+  const chosen = state.editor?.colors[state.editor.selected];
+  if (chosen) copyText(chosen.hex);
+});
+elements.undo.addEventListener("click", () => applyEditorAction({
+  type: "undo",
+}, "Cambio deshecho"));
+elements.redo.addEventListener("click", () => applyEditorAction({
+  type: "redo",
+}, "Cambio rehecho"));
+elements.reset.addEventListener("click", () => {
+  if (!state.baseResult) return;
+  applyEditorAction({
+    type: "reset", colors: state.baseResult.colors,
+  }, "Paleta restablecida");
+});
+for (const select of [elements.contrastFg, elements.contrastBg]) {
+  select.addEventListener("change", updateContrast);
+}
+elements.contrastSwap.addEventListener("click", () => {
+  const previous = elements.contrastFg.value;
+  elements.contrastFg.value = elements.contrastBg.value;
+  elements.contrastBg.value = previous;
+  updateContrast();
+});
+elements.copyGradient.addEventListener("click", () => {
+  const value = gradientValue();
+  if (value) copyText(`background: ${value};`);
+});
+document.addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") {
+    return;
+  }
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement || !state.editor) return;
+  event.preventDefault();
+  applyEditorAction({
+    type: event.shiftKey ? "redo" : "undo",
+  }, event.shiftKey ? "Cambio rehecho" : "Cambio deshecho");
+});
+// Animation is an enhancement, never a prerequisite to use the editor.
+import("./animations.mjs")
+  .then(({ initializeAnimations }) => initializeAnimations())
+  .catch(() => {
+    // Without npm dependencies the original static HTTP server still works.
+    console.info("Animaciones opcionales no disponibles.");
+  });

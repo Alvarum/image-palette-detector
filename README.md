@@ -4,23 +4,36 @@ A local-first color tool for artists, pixel artists and developers. Extract
 useful dominant colors from a photograph, inspect **exact RGBA colors** in a
 sprite, and export reproducible palettes for code or visual work.
 
-**Version:** 0.2.0, first implementation of the 2.0 roadmap. Not all roadmap
+**Python engine:** 0.2.0. **Browser Studio:** 0.3.0. Not all roadmap
 features are ready yet. [Issues and future work](https://github.com/Alvarum/image-palette-detector/issues/1).
 
-## Try it in your browser (no image uploads)
+## Use Palette Studio in your browser (no image uploads)
+
+Studio 0.3 uses Vite to bundle GSAP and Motion locally. Install dependencies
+once (Node.js 20.19+ or 22.12+) and launch the development server:
 
 ```bash
-python -m http.server 8000 --directory studio
+cd studio
+npm install
+npm run dev
 ```
 
-Then open <http://localhost:8000>. The Studio processes selected images in
-your browser. It does **not** send them to a server; it uses the browser's
-Canvas and a Web Worker. The Python web server serves only static files.
+Open the URL printed by Vite (usually <http://localhost:5173>). To generate a
+self-contained static site, run `npm run build` and host `studio/dist/`.
+Images remain in the local browser, even though initial `npm install` requires
+an internet connection to retrieve packages. Extraction runs with Canvas and
+a Web Worker; images are not sent to a server.
 
 - Click, drag-and-drop or paste an image into the Studio.
 - Switch **Dominant** (representative palette) or **Exact** (unique colors).
 - Pick your swatch count (Dominant), sorting and transparency policy.
-- Click a swatch to copy its HEX. Export JSON, CSS, SVG, GPL or PNG.
+- Click a swatch to edit its HEX, lock it across reanalysis, change its
+  position or remove it. Undo, redo, reset and Ctrl/Cmd+Z shortcuts work.
+- Use the image eyedropper to add pixels as opaque colors (composited on the
+  chosen background). The color picker does not preserve source alpha.
+- Use the contrast checker for WCAG AA/AAA text ratios and a gradient preview.
+  Semi-transparent colors are composited on white for the contrast calculation.
+- Copy a selected HEX or CSS gradient and export JSON, CSS, SVG, GPL or PNG.
 - The Studio and Python CLI share core JSON fields (their option objects
   differ). Dominant quantizers
   differ (weighted median-cut vs Pillow median-cut), so their colors may
@@ -29,10 +42,20 @@ Canvas and a Web Worker. The Python web server serves only static files.
   channels (Canvas can premultiply alpha). For lossless RGBA inspection,
   use the Python CLI with `--alpha preserve`.
 
-No accounts, uploads, tracking scripts, external fonts or build tools.
-Currently the Studio isn't installable offline: serve the files locally or
-host it as a static website. The preview is capped at 6 million pixels and
-Exact mode at 200,000 distinct colors to prevent browser lockups.
+No accounts, image uploads, tracking scripts or external fonts. GSAP and
+Motion run from bundled local dependencies, not a runtime CDN. The Studio
+isn't yet a PWA; host the built files or use the Vite server. The preview
+is capped at 6 million pixels and Exact mode at 200,000 distinct colors.
+
+If you only want to use the editor without animations or npm, it can still be
+served as static files from the repository root:
+
+```bash
+python -m http.server 8000 --directory studio
+```
+
+Open <http://localhost:8000>. The GSAP/Motion module is loaded optionally,
+so an unavailable animation dependency does not block extraction or editing.
 
 ## Install the CLI
 
@@ -162,7 +185,7 @@ python -m pip install -e '.[dev]'
 pytest -q
 ruff check .
 mypy src
-node --test studio/worker.test.js
+cd studio && npm test && npm run build
 ```
 
 No GitHub Actions quota is required for local validation. Bugs or feature

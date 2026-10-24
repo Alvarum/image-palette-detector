@@ -14,7 +14,7 @@ test("the hero describes the extraction capability", () => {
     html,
     /<h1 id="page-title">Extrae <em>paletas de color<\/em><\/h1>/,
   );
-  assert.match(html, /Obtén colores dominantes o exactos/);
+  assert.match(html, /Extrae colores, ajusta la paleta, prueba contrastes/);
 });
 
 test("image upload instructions identify a concrete action", () => {
